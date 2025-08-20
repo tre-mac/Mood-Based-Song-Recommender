@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mood‑Based Song Recommender</title>
+  <style>
+    :root{
+      --bg:#0f1220;--card:#171a2b;--muted:#8288a1;--text:#e8ebff;--accent:#7c8cff;--accent-2:#9bf0ff;--chip:#232741;--shadow:rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 600px at 10% -10%, #232741 0%, transparent 55%),
+                  radial-gradient(1000px 400px at 120% 10%, #1b2041 0%, transparent 50%),
+                  var(--bg);
+      color:var(--text);
+    }
+    .container{max-width:1100px;margin:48px auto;padding:0 20px}
+    header{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    h1{font-size:clamp(1.4rem,2.5vw,2rem);margin:0}
+    .sub{color:var(--muted);font-size:.95rem}
+
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0));
+      border:1px solid rgba(255,255,255,.08);border-radius:18px;box-shadow:0 10px 30px var(--shadow);
+      padding:18px}
+
+    .controls{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
+    @media(min-width:720px){.controls{grid-template-columns:1.2fr .8fr auto auto}}
+
+    .dropdown{position:relative}
+    .dropdown button{width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .btn{
+      background:linear-gradient(180deg, #293056, #1a1f3a);
+      border:1px solid rgba(255,255,255,.1); color:var(--text);
+      padding:12px 14px; border-radius:12px; cursor:pointer; font-weight:600;
+      box-shadow:0 6px 18px var(--shadow); transition:transform .05s ease;
+    }
+    .btn:active{transform:translateY(1px)}
+    .btn-ghost{background:transparent;border:1px dashed rgba(255,255,255,.2)}
+
+    .dropdown-menu{position:absolute;inset:unset;left:0;right:0;top:calc(100% + 8px);
+      background:var(--card); border:1px solid rgba(255,255,255,.12); border-radius:14px;
+      box-shadow:0 14px 30px var(--shadow); padding:10px; max-height:310px; overflow:auto; display:none; z-index:10}
+    .dropdown.open .dropdown-menu{display:block}
+
+    .search{display:flex;gap:10px}
+    .search input{flex:1; background:#0e1227; border:1px solid rgba(255,255,255,.12); color:var(--text);
+      padding:10px 12px; border-radius:10px}
+
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .chip{background:var(--chip);color:var(--accent-2);padding:6px 10px;border-radius:999px;font-size:.85rem;border:1px solid rgba(255,255,255,.12)}
+
+    .results{margin-top:22px;display:grid;grid-template-columns:1fr;gap:12px}
+    @media(min-width:740px){.results{grid-template-columns:1fr 1fr}}
+
+    .song{background:var(--card); border:1px solid rgba(255,255,255,.08); padding:14px; border-radius:14px;
+      display:flex; gap:12px; align-items:flex-start}
+    .song .score{min-width:42px;height:42px;display:grid;place-items:center;font-weight:800;border-radius:12px;background:#0e1227;border:1px solid rgba(255,255,255,.12)}
+    .song h3{margin:.1rem 0 .2rem;font-size:1rem}
+    .song .artist{color:var(--muted);font-size:.9rem}
+
+    .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .badge{font-size:.75rem;padding:4px 8px;border-radius:999px;background:#10143a;border:1px solid rgba(255,255,255,.12);color:#b6c3ff}
+    .link{margin-left:auto}
+    .link a{color:var(--accent);text-decoration:none;font-weight:700}
+
+    footer{margin:30px 0;color:var(--muted);font-size:.9rem}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>🎧 Mood‑Based Song Recommender</h1>
+        <div class="sub">Select all moods that apply—then get curated tracks that fit the vibe.</div>
+      </div>
+    </header>
+
+    <section class="card">
+      <div class="controls">
+        <!-- Custom dropdown with checkboxes -->
+        <div class="dropdown" id="moodDropdown">
+          <button class="btn" id="dropdownToggle" type="button" aria-haspopup="true" aria-expanded="false">
+            <span id="dropdownLabel">Select moods (all that apply)</span>
+            <span>▾</span>
+          </button>
+          <div class="dropdown-menu" role="menu" aria-label="Mood selector">
+            <div class="search">
+              <input type="text" id="moodFilter" placeholder="Filter moods..." aria-label="Filter moods" />
+              <button class="btn btn-ghost" id="selectAll">Select all</button>
+            </div>
+            <div id="moodOptions" style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
+          </div>
+          <div class="chips" id="selectedChips" aria-live="polite"></div>
+        </div>
+
+        <button class="btn" id="recommendBtn" type="button">🎵 Get recommendations</button>
+        <button class="btn btn-ghost" id="clearBtn" type="button">Clear</button>
+        <button class="btn btn-ghost" id="shuffleBtn" type="button">Shuffle list</button>
+      </div>
+
+      <div class="results" id="results"></div>
+    </section>
+
+    <footer>
+      Tip: Results are ranked by how many of your moods each track matches. Click a title to open a YouTube search for quick listening.
+    </footer>
+  </div>
+
+  <script>
+    // ======= Data =======
+    const MOODS = [
+      "Happy", "Chill", "Energetic", "Sad", "Romantic", "Focus",
+      "Confident", "Melancholic", "Uplifting", "Party", "Aggressive",
+      "Relaxed", "Nostalgic", "Motivational", "Dark"
+    ];
+
+    // Minimal, hand‑picked dataset. Add your own easily below!
+    // mood tags aim to be intuitive; feel free to tweak.
+    const SONGS = [
+      { t:"Happy", a:"Pharrell Williams", m:["Happy","Party","Uplifting"], y:2013 },
+      { t:"Blinding Lights", a:"The Weeknd", m:["Energetic","Party","Confident"], y:2019 },
+      { t:"Levitating", a:"Dua Lipa", m:["Happy","Party","Uplifting","Confident"], y:2020 },
+      { t:"good 4 u", a:"Olivia Rodrigo", m:["Energetic","Aggressive","Confident"], y:2021 },
+      { t:"Lose Yourself", a:"Eminem", m:["Motivational","Confident","Energetic"], y:2002 },
+      { t:"Viva La Vida", a:"Coldplay", m:["Uplifting","Nostalgic","Happy"], y:2008 },
+      { t:"Nights", a:"Frank Ocean", m:["Chill","Melancholic","Relaxed"], y:2016 },
+      { t:"Cigarette Daydreams", a:"Cage The Elephant", m:["Chill","Nostalgic","Melancholic"], y:2013 },
+      { t:"drivers license", a:"Olivia Rodrigo", m:["Sad","Melancholic","Dark"], y:2021 },
+      { t:"SLOW DANCING IN THE DARK", a:"Joji", m:["Sad","Melancholic","Dark"], y:2018 },
+      { t:"Yellow", a:"Coldplay", m:["Romantic","Chill","Uplifting"], y:2000 },
+      { t:"Adore You", a:"Harry Styles", m:["Romantic","Happy","Uplifting"], y:2019 },
+      { t:"Die For You", a:"The Weeknd", m:["Romantic","Dark","Chill"], y:2016 },
+      { t:"Peaches", a:"Justin Bieber", m:["Chill","Happy","Party"], y:2021 },
+      { t:"HUMBLE.", a:"Kendrick Lamar", m:["Confident","Aggressive","Energetic"], y:2017 },
+      { t:"SICKO MODE", a:"Travis Scott", m:["Party","Aggressive","Confident"], y:2018 },
+      { t:"Sunflower", a:"Post Malone & Swae Lee", m:["Happy","Chill","Uplifting"], y:2018 },
+      { t:"Lovely", a:"Billie Eilish & Khalid", m:["Sad","Melancholic","Dark"], y:2018 },
+      { t:"Someone Like You", a:"Adele", m:["Sad","Romantic","Melancholic"], y:2011 },
+      { t:"On & On", a:"Erykah Badu", m:["Chill","Relaxed","Nostalgic"], y:1997 },
+      { t:"Landslide", a:"Fleetwood Mac", m:["Nostalgic","Melancholic","Relaxed"], y:1975 },
+      { t:"Mr. Brightside", a:"The Killers", m:["Energetic","Party","Nostalgic"], y:2003 },
+      { t:"Don’t Stop Believin'", a:"Journey", m:["Uplifting","Nostalgic","Motivational"], y:1981 },
+      { t:"Hysteria", a:"Muse", m:["Energetic","Aggressive","Confident"], y:2003 },
+      { t:"Clocks", a:"Coldplay", m:["Focus","Chill","Relaxed"], y:2002 },
+      { t:"Sunset Lover", a:"Petit Biscuit", m:["Focus","Chill","Relaxed"], y:2015 },
+      { t:"Weightless", a:"Marconi Union", m:["Relaxed","Focus","Chill"], y:2011 },
+      { t:"Time", a:"Hans Zimmer", m:["Focus","Motivational","Melancholic"], y:2010 },
+      { t:"POWER", a:"Kanye West", m:["Confident","Aggressive","Motivational"], y:2010 },
+      { t:"Titanium", a:"David Guetta ft. Sia", m:["Uplifting","Motivational","Energetic"], y:2011 },
+      { t:"I Wanna Dance with Somebody", a:"Whitney Houston", m:["Happy","Party","Uplifting"], y:1987 },
+      { t:"bad guy", a:"Billie Eilish", m:["Confident","Dark","Aggressive"], y:2019 },
+      { t:"STARBOY", a:"The Weeknd ft. Daft Punk", m:["Confident","Party","Energetic"], y:2016 },
+      { t:"After Dark", a:"Mr.Kitty", m:["Dark","Chill","Romantic"], y:2014 },
+      { t:"Ocean Eyes", a:"Billie Eilish", m:["Romantic","Chill","Melancholic"], y:2016 },
+      { t:"Heat Waves", a:"Glass Animals", m:["Chill","Happy","Nostalgic"], y:2020 },
+      { t:"Midnight City", a:"M83", m:["Nostalgic","Energetic","Uplifting"], y:2011 },
+      { t:"Pompeii", a:"Bastille", m:["Uplifting","Energetic","Motivational"], y:2013 },
+      { t:"The Less I Know The Better", a:"Tame Impala", m:["Chill","Nostalgic","Romantic"], y:2015 },
+      { t:"Where Is My Mind?", a:"Pixies", m:["Melancholic","Nostalgic","Dark"], y:1988 },
+      { t:"Everything In Its Right Place", a:"Radiohead", m:["Dark","Focus","Melancholic"], y:2000 },
+      { t:"September", a:"Earth, Wind & Fire", m:["Happy","Party","Uplifting"], y:1978 },
+      { t:"Fearless", a:"Taylor Swift", m:["Romantic","Uplifting","Happy"], y:2008 },
+      { t:"Can’t Hold Us", a:"Macklemore & Ryan Lewis", m:["Motivational","Energetic","Uplifting"], y:2011 },
+      { t:"Runaway", a:"Kanye West", m:["Melancholic","Dark","Sad"], y:2010 },
+      { t:"the 1", a:"Taylor Swift", m:["Chill","Melancholic","Nostalgic"], y:2020 },
+      { t:"Space Song", a:"Beach House", m:["Melancholic","Chill","Romantic"], y:2015 },
+      { t:"Ribs", a:"Lorde", m:["Nostalgic","Melancholic","Chill"], y:2013 }
+    ];
+
+    // ======= DOM helpers =======
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
+
+    const dropdown = $('#moodDropdown');
+    const toggle = $('#dropdownToggle');
+    const menu = dropdown.querySelector('.dropdown-menu');
+    const optionsWrap = $('#moodOptions');
+    const filterInput = $('#moodFilter');
+    const selectAllBtn = $('#selectAll');
+    const chips = $('#selectedChips');
+
+    const results = $('#results');
+    const btnRecommend = $('#recommendBtn');
+    const btnClear = $('#clearBtn');
+    const btnShuffle = $('#shuffleBtn');
+
+    // Build checkbox options
+    const buildOptions = () => {
+      optionsWrap.innerHTML = '';
+      MOODS.forEach(m => {
+        const id = 'mood_' + m.replace(/\s+/g, '').toLowerCase();
+        const row = document.createElement('label');
+        row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '8px';
+        row.innerHTML = `<input type="checkbox" value="${m}" id="${id}"> <span>${m}</span>`;
+        optionsWrap.appendChild(row);
+      });
+    };
+
+    // Selected state helpers
+    const getSelectedMoods = () => $$('#moodOptions input:checked').map(i => i.value);
+
+    const setSelectedChips = () => {
+      chips.innerHTML = '';
+      const selected = getSelectedMoods();
+      $('#dropdownLabel').textContent = selected.length ? `${selected.length} mood${selected.length>1?'s':''} selected` : 'Select moods (all that apply)';
+      selected.forEach(m => {
+        const c = document.createElement('span');
+        c.className = 'chip'; c.textContent = m; chips.appendChild(c);
+      });
+    };
+
+    // Dropdown behavior
+    toggle.addEventListener('click', () => {
+      dropdown.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', dropdown.classList.contains('open'));
+      if (dropdown.classList.contains('open')) filterInput.focus();
+    });
+    document.addEventListener('click', (e) => {
+      if (!dropdown.contains(e.target)) dropdown.classList.remove('open');
+    });
+
+    // Filter moods
+    filterInput.addEventListener('input', () => {
+      const q = filterInput.value.toLowerCase();
+      $$('#moodOptions label').forEach(lbl => {
+        const txt = lbl.textContent.toLowerCase();
+        lbl.style.display = txt.includes(q) ? 'flex' : 'none';
+      });
+    });
+
+    // Select all
+    selectAllBtn.addEventListener('click', () => {
+      const visible = $$('#moodOptions label').filter(lbl => lbl.style.display !== 'none');
+      const inputs = visible.map(v => v.querySelector('input'));
+      const allChecked = inputs.every(i => i.checked);
+      inputs.forEach(i => i.checked = !allChecked);
+      setSelectedChips();
+    });
+
+    // Update chips on change
+    optionsWrap.addEventListener('change', setSelectedChips);
+
+    // Recommendation logic
+    const scoreSong = (song, selected) => song.m.reduce((acc, m) => acc + (selected.includes(m) ? 1 : 0), 0);
+
+    const toYT = (title, artist) => `https://www.youtube.com/results?search_query=${encodeURIComponent(`${title} ${artist}`)}`;
+
+    const render = (items, selected) => {
+      results.innerHTML = '';
+      if (!selected.length){
+        results.innerHTML = '<div class="sub">Choose at least one mood to see recommendations.</div>';
+        return;
+      }
+      if (!items.length){
+        results.innerHTML = '<div class="sub">No exact matches. Try broadening your mood selection.</div>';
+        return;
+      }
+      items.forEach(({song, score}) => {
+        const el = document.createElement('article');
+        el.className = 'song';
+        el.innerHTML = `
+          <div class="score" title="Matched moods">${score}</div>
+          <div style="flex:1">
+            <h3><a href="${toYT(song.t, song.a)}" target="_blank" rel="noopener">${song.t}</a></h3>
+            <div class="artist">${song.a} • ${song.y}</div>
+            <div class="meta">
+              ${song.m.map(mm => `<span class="badge">${mm}</span>`).join('')}
+            </div>
+          </div>
+        `;
+        results.appendChild(el);
+      });
+    };
+
+    const recommend = () => {
+      const selected = getSelectedMoods();
+      const scored = SONGS.map(song => ({ song, score: scoreSong(song, selected) }))
+                          .filter(x => x.score > 0);
+      // Rank by score, then more recent first, then title
+      scored.sort((a, b) => b.score - a.score || b.song.y - a.song.y || a.song.t.localeCompare(b.song.t));
+      render(scored.slice(0, 20), selected);
+    };
+
+    // Buttons
+    btnRecommend.addEventListener('click', recommend);
+    btnShuffle.addEventListener('click', () => {
+      // Fisher‑Yates shuffle dataset, then re‑run recommend to vary ordering within same scores
+      for (let i = SONGS.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [SONGS[i], SONGS[j]] = [SONGS[j], SONGS[i]];
+      }
+      recommend();
+    });
+    btnClear.addEventListener('click', () => {
+      $$('#moodOptions input:checked').forEach(i => i.checked = false);
+      setSelectedChips();
+      results.innerHTML = '';
+    });
+
+    // Init
+    buildOptions();
+    setSelectedChips();
+  </script>
+</body>
+</html>
