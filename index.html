@@ -106,14 +106,15 @@ const setSelectedChips = () => {
   });
 };
 
-toggle.addEventListener('click', () => {
+// Fix dropdown click handling
+toggle.addEventListener('click', (e) => {
   dropdown.classList.toggle('open');
   toggle.setAttribute('aria-expanded', dropdown.classList.contains('open'));
   if (dropdown.classList.contains('open')) filterInput.focus();
+  e.stopPropagation();
 });
-document.addEventListener('click', (e) => {
-  if (!dropdown.contains(e.target)) dropdown.classList.remove('open');
-});
+dropdown.addEventListener('click', (e) => e.stopPropagation());
+document.addEventListener('click', () => dropdown.classList.remove('open'));
 
 filterInput.addEventListener('input', () => {
   const q = filterInput.value.toLowerCase();
