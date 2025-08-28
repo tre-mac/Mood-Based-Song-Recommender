@@ -134,7 +134,7 @@ selectAllBtn.addEventListener('click', () => {
 optionsWrap.addEventListener('change', setSelectedChips);
 
 // ======= Fetch from Azure Function =======
-const API_URL = "const API_URL = "msbr1234-bwbncgh4d9aveeat.eastus-01.azurewebsites.net/api/GetRecommendations"; // update if needed for localhost
+const API_URL = "https://msbr1234-bwbncgh4d9aveeat.eastus-01.azurewebsites.net/api/GetRecommendations";
 
 const toYT = (title, artist) =>
   `https://www.youtube.com/results?search_query=${encodeURIComponent(title + " " + artist)}`;
@@ -145,7 +145,7 @@ const render = (items, selected) => {
     results.innerHTML = '<div class="sub">Choose at least one mood to see recommendations.</div>';
     return;
   }
-  if (!items.length){
+  if (!items || !items.length){
     results.innerHTML = '<div class="sub">No matches found. Try broadening your mood selection.</div>';
     return;
   }
@@ -178,6 +178,7 @@ const recommend = async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ moods: selected })
     });
+    if (!res.ok) throw new Error(`Server responded with ${res.status}`);
     const data = await res.json();
     render(data, selected);
   } catch (err) {
@@ -199,3 +200,4 @@ setSelectedChips();
 </script>
 </body>
 </html>
+
