@@ -109,10 +109,13 @@
   </div>
 
   <script>
+    // ======= Config =======
+    const FUNCTION_URL = "https://msbr1234-bwbncgh4d9aveeat.eastus-01.azurewebsites.net/api/getrecommendations";
+
     const MOODS = [
-      "Happy","Chill","Energetic","Sad","Romantic","Focus",
-      "Confident","Melancholic","Uplifting","Party","Aggressive",
-      "Relaxed","Nostalgic","Motivational","Dark"
+      "Happy", "Chill", "Energetic", "Sad", "Romantic", "Focus",
+      "Confident", "Melancholic", "Uplifting", "Party", "Aggressive",
+      "Relaxed", "Nostalgic", "Motivational", "Dark"
     ];
 
     const $ = (sel, root=document) => root.querySelector(sel);
@@ -130,21 +133,19 @@
     const btnClear = $('#clearBtn');
     const btnShuffle = $('#shuffleBtn');
 
-    const API_URL = "https://msbr1234-bwbncgh4d9aveeat.eastus-01.azurewebsites.net/api/GetRecommendations";
-
-    // Build checkboxes
+    // Build mood options
     const buildOptions = () => {
       optionsWrap.innerHTML = '';
       MOODS.forEach(m => {
-        const id = 'mood_' + m.replace(/\s+/g,'').toLowerCase();
+        const id = 'mood_' + m.replace(/\s+/g, '').toLowerCase();
         const row = document.createElement('label');
-        row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap='8px';
+        row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '8px';
         row.innerHTML = `<input type="checkbox" value="${m}" id="${id}"> <span>${m}</span>`;
         optionsWrap.appendChild(row);
       });
     };
 
-    const getSelectedMoods = () => $$('#moodOptions input:checked').map(i=>i.value);
+    const getSelectedMoods = () => $$('#moodOptions input:checked').map(i => i.value);
 
     const setSelectedChips = () => {
       chips.innerHTML = '';
@@ -152,85 +153,88 @@
       $('#dropdownLabel').textContent = selected.length ? `${selected.length} mood${selected.length>1?'s':''} selected` : 'Select moods (all that apply)';
       selected.forEach(m => {
         const c = document.createElement('span');
-        c.className='chip'; c.textContent=m; chips.appendChild(c);
+        c.className = 'chip'; c.textContent = m; chips.appendChild(c);
       });
     };
 
-    toggle.addEventListener('click', ()=> {
+    toggle.addEventListener('click', () => {
       dropdown.classList.toggle('open');
       toggle.setAttribute('aria-expanded', dropdown.classList.contains('open'));
-      if(dropdown.classList.contains('open')) filterInput.focus();
+      if (dropdown.classList.contains('open')) filterInput.focus();
     });
-    document.addEventListener('click',(e)=>{ if(!dropdown.contains(e.target)) dropdown.classList.remove('open'); });
-
-    filterInput.addEventListener('input', ()=>{
+    document.addEventListener('click', (e) => {
+      if (!dropdown.contains(e.target)) dropdown.classList.remove('open');
+    });
+    filterInput.addEventListener('input', () => {
       const q = filterInput.value.toLowerCase();
-      $$('#moodOptions label').forEach(lbl=>{
-        lbl.style.display = lbl.textContent.toLowerCase().includes(q)?'flex':'none';
+      $$('#moodOptions label').forEach(lbl => {
+        lbl.style.display = lbl.textContent.toLowerCase().includes(q) ? 'flex' : 'none';
       });
     });
-
-    selectAllBtn.addEventListener('click', ()=>{
-      const visible = $$('#moodOptions label').filter(lbl=>lbl.style.display!=='none');
-      const inputs = visible.map(v=>v.querySelector('input'));
-      const allChecked = inputs.every(i=>i.checked);
-      inputs.forEach(i=>i.checked=!allChecked);
+    selectAllBtn.addEventListener('click', () => {
+      const visible = $$('#moodOptions label').filter(lbl => lbl.style.display !== 'none');
+      const inputs = visible.map(v => v.querySelector('input'));
+      const allChecked = inputs.every(i => i.checked);
+      inputs.forEach(i => i.checked = !allChecked);
       setSelectedChips();
     });
-
     optionsWrap.addEventListener('change', setSelectedChips);
 
-    const render = items => {
+    const toYT = (title, artist) => `https://www.youtube.com/results?search_query=${encodeURIComponent(`${title} ${artist}`)}`;
+
+    const render = (items, selected) => {
       results.innerHTML = '';
-      if(!items.length){
-        results.innerHTML = '<div class="sub">No matches found for selected moods.</div>';
+      if (!selected.length){
+        results.innerHTML = '<div class="sub">Choose at least one mood to see recommendations.</div>';
         return;
       }
-      items.forEach(({song, score})=>{
+      if (!items.length){
+        results.innerHTML = '<div class="sub">No matches found. Try broadening your mood selection.</div>';
+        return;
+      }
+      items.forEach(({song, score}) => {
         const el = document.createElement('article');
-        el.className='song';
+        el.className = 'song';
         el.innerHTML = `
           <div class="score" title="Matched moods">${score}</div>
           <div style="flex:1">
-            <h3><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(song.title+' '+song.artist)}" target="_blank" rel="noopener">${song.title}</a></h3>
+            <h3><a href="${toYT(song.title, song.artist)}" target="_blank" rel="noopener">${song.title}</a></h3>
             <div class="artist">${song.artist} • ${song.year}</div>
-            <div class="meta">${song.moods.map(mm=>`<span class="badge">${mm}</span>`).join('')}</div>
+            <div class="meta">
+              ${song.moods.map(mm => `<span class="badge">${mm}</span>`).join('')}
+            </div>
           </div>
         `;
         results.appendChild(el);
       });
     };
 
-    const recommend = async ()=>{
+    const recommend = async () => {
       const selected = getSelectedMoods();
-      if(!selected.length){
-        results.innerHTML = '<div class="sub">Choose at least one mood to see recommendations.</div>';
-        return;
-      }
-      try{
-        const res = await fetch(API_URL, {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ moods: selected })
+      if (!selected.length) return render([], selected);
+
+      try {
+        const res = await fetch(FUNCTION_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ moods: selected }),
+          mode: 'cors',
+          credentials: 'omit'
         });
-        if(!res.ok) throw new Error(`Server responded ${res.status}`);
+        if (!res.ok) throw new Error(`Server responded ${res.status}`);
         const data = await res.json();
-        render(data);
-      }catch(err){
+        render(data, selected);
+      } catch (err) {
         results.innerHTML = `<div class="sub">Error fetching recommendations: ${err.message}</div>`;
       }
     };
 
     btnRecommend.addEventListener('click', recommend);
-
-    btnShuffle.addEventListener('click', () => {
-      recommend(); // rely on API for current scoring
-    });
-
+    btnShuffle.addEventListener('click', recommend);
     btnClear.addEventListener('click', () => {
-      $$('#moodOptions input:checked').forEach(i=>i.checked=false);
+      $$('#moodOptions input:checked').forEach(i => i.checked = false);
       setSelectedChips();
-      results.innerHTML='';
+      results.innerHTML = '';
     });
 
     buildOptions();
