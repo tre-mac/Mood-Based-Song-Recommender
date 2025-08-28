@@ -80,7 +80,6 @@
 
     <section class="card">
       <div class="controls">
-        <!-- Custom dropdown with checkboxes -->
         <div class="dropdown" id="moodDropdown">
           <button class="btn" id="dropdownToggle" type="button" aria-haspopup="true" aria-expanded="false">
             <span id="dropdownLabel">Select moods (all that apply)</span>
@@ -121,7 +120,6 @@
 
     const dropdown = $('#moodDropdown');
     const toggle = $('#dropdownToggle');
-    const menu = dropdown.querySelector('.dropdown-menu');
     const optionsWrap = $('#moodOptions');
     const filterInput = $('#moodFilter');
     const selectAllBtn = $('#selectAll');
@@ -132,19 +130,21 @@
     const btnClear = $('#clearBtn');
     const btnShuffle = $('#shuffleBtn');
 
-    // Build checkbox options
+    const API_URL = "https://msbr1234-bwbncgh4d9aveeat.eastus-01.azurewebsites.net/api/GetRecommendations";
+
+    // Build checkboxes
     const buildOptions = () => {
       optionsWrap.innerHTML = '';
       MOODS.forEach(m => {
-        const id = 'mood_' + m.replace(/\s+/g, '').toLowerCase();
+        const id = 'mood_' + m.replace(/\s+/g,'').toLowerCase();
         const row = document.createElement('label');
-        row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '8px';
+        row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap='8px';
         row.innerHTML = `<input type="checkbox" value="${m}" id="${id}"> <span>${m}</span>`;
         optionsWrap.appendChild(row);
       });
     };
 
-    const getSelectedMoods = () => $$('#moodOptions input:checked').map(i => i.value);
+    const getSelectedMoods = () => $$('#moodOptions input:checked').map(i=>i.value);
 
     const setSelectedChips = () => {
       chips.innerHTML = '';
@@ -152,91 +152,85 @@
       $('#dropdownLabel').textContent = selected.length ? `${selected.length} mood${selected.length>1?'s':''} selected` : 'Select moods (all that apply)';
       selected.forEach(m => {
         const c = document.createElement('span');
-        c.className = 'chip'; c.textContent = m; chips.appendChild(c);
+        c.className='chip'; c.textContent=m; chips.appendChild(c);
       });
     };
 
-    toggle.addEventListener('click', () => {
+    toggle.addEventListener('click', ()=> {
       dropdown.classList.toggle('open');
       toggle.setAttribute('aria-expanded', dropdown.classList.contains('open'));
-      if (dropdown.classList.contains('open')) filterInput.focus();
+      if(dropdown.classList.contains('open')) filterInput.focus();
     });
+    document.addEventListener('click',(e)=>{ if(!dropdown.contains(e.target)) dropdown.classList.remove('open'); });
 
-    document.addEventListener('click', (e) => {
-      if (!dropdown.contains(e.target)) dropdown.classList.remove('open');
-    });
-
-    filterInput.addEventListener('input', () => {
+    filterInput.addEventListener('input', ()=>{
       const q = filterInput.value.toLowerCase();
-      $$('#moodOptions label').forEach(lbl => {
-        const txt = lbl.textContent.toLowerCase();
-        lbl.style.display = txt.includes(q) ? 'flex' : 'none';
+      $$('#moodOptions label').forEach(lbl=>{
+        lbl.style.display = lbl.textContent.toLowerCase().includes(q)?'flex':'none';
       });
     });
 
-    selectAllBtn.addEventListener('click', () => {
-      const visible = $$('#moodOptions label').filter(lbl => lbl.style.display !== 'none');
-      const inputs = visible.map(v => v.querySelector('input'));
-      const allChecked = inputs.every(i => i.checked);
-      inputs.forEach(i => i.checked = !allChecked);
+    selectAllBtn.addEventListener('click', ()=>{
+      const visible = $$('#moodOptions label').filter(lbl=>lbl.style.display!=='none');
+      const inputs = visible.map(v=>v.querySelector('input'));
+      const allChecked = inputs.every(i=>i.checked);
+      inputs.forEach(i=>i.checked=!allChecked);
       setSelectedChips();
     });
 
     optionsWrap.addEventListener('change', setSelectedChips);
 
-    // Render results
-    const toYT = (title, artist) => `https://www.youtube.com/results?search_query=${encodeURIComponent(`${title} ${artist}`)}`;
-
-    const render = (items) => {
+    const render = items => {
       results.innerHTML = '';
-      if (!items.length){
-        results.innerHTML = '<div class="sub">No matches found. Try different moods.</div>';
+      if(!items.length){
+        results.innerHTML = '<div class="sub">No matches found for selected moods.</div>';
         return;
       }
-      items.forEach(({song, score}) => {
+      items.forEach(({song, score})=>{
         const el = document.createElement('article');
-        el.className = 'song';
+        el.className='song';
         el.innerHTML = `
           <div class="score" title="Matched moods">${score}</div>
           <div style="flex:1">
-            <h3><a href="${toYT(song.title, song.artist)}" target="_blank" rel="noopener">${song.title}</a></h3>
+            <h3><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(song.title+' '+song.artist)}" target="_blank" rel="noopener">${song.title}</a></h3>
             <div class="artist">${song.artist} • ${song.year}</div>
-            <div class="meta">
-              ${song.moods.map(mm => `<span class="badge">${mm}</span>`).join('')}
-            </div>
+            <div class="meta">${song.moods.map(mm=>`<span class="badge">${mm}</span>`).join('')}</div>
           </div>
         `;
         results.appendChild(el);
       });
     };
 
-    // Fetch from Azure Function
-    const recommend = async () => {
+    const recommend = async ()=>{
       const selected = getSelectedMoods();
-      if (!selected.length) {
+      if(!selected.length){
         results.innerHTML = '<div class="sub">Choose at least one mood to see recommendations.</div>';
         return;
       }
-
-      try {
-        const response = await fetch('https://msbr1234.azurewebsites.net/api/GetRecommendations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+      try{
+        const res = await fetch(API_URL, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ moods: selected })
         });
-        const data = await response.json();
+        if(!res.ok) throw new Error(`Server responded ${res.status}`);
+        const data = await res.json();
         render(data);
-      } catch (err) {
+      }catch(err){
         results.innerHTML = `<div class="sub">Error fetching recommendations: ${err.message}</div>`;
       }
     };
 
     btnRecommend.addEventListener('click', recommend);
-    btnShuffle.addEventListener('click', recommend); // reshuffle will rely on Function App sorting
+
+    btnShuffle.addEventListener('click', () => {
+      recommend(); // rely on API for current scoring
+    });
+
     btnClear.addEventListener('click', () => {
-      $$('#moodOptions input:checked').forEach(i => i.checked = false);
+      $$('#moodOptions input:checked').forEach(i=>i.checked=false);
       setSelectedChips();
-      results.innerHTML = '';
+      results.innerHTML='';
     });
 
     buildOptions();
@@ -244,5 +238,4 @@
   </script>
 </body>
 </html>
-
 
