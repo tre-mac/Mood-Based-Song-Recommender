@@ -135,7 +135,7 @@ selectAllBtn.addEventListener('click', () => {
 optionsWrap.addEventListener('change', setSelectedChips);
 
 // ======= Fetch from Azure Function =======
-const API_URL = "https://msbr1234-bwbncgh4d9aveeat.eastus-01.azurewebsites.net/api/GetRecommendations";
+const API_URL = "https://msbr1234-bwbncgh4d9aveeat.eastus-01.azurewebsites.net/api/GetRecommendations?";
 
 const toYT = (title, artist) =>
   `https://www.youtube.com/results?search_query=${encodeURIComponent(title + " " + artist)}`;
